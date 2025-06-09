@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>綠色奇蹟回收年度趨勢圖表</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f7f7f7;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .chart-box {
+      width: 95%;
+      max-width: 1100px;
+      margin: 2rem auto;
+    }
+    canvas {
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>綠色奇蹟｜年度回收趨勢分析</h2>
+
+  <div class="chart-box">
+    <canvas id="monthlyTrendChart"></canvas>
+  </div>
+
+  <div class="chart-box">
+    <canvas id="yearlyStackChart"></canvas>
+  </div>
+
+  <script>
+    const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+
+    fetch("https://script.google.com/macros/s/AKfycbyMJ4vdtQ6b4KlwVQz8kzaYkVqr4UACb04XK7CPQ4G6efhxKRyIA0tALQoUyss8foFD/exec")
+      .then(res => res.json())
+      .then(sampleData => {
+        const years = [...new Set(sampleData.map(d => d.DonaYearMon.split("/")[0]))].sort();
+
+        // 繪製第一張：1~12 月各年度總數折線圖
+        const monthlyLineDatasets = years.map((year, idx) => {
+          return {
+            label: `${year} 年總計`,
+            data: months.map(mon => {
+              const item = sampleData.find(d => d.DonaYearMon === `${year}/${mon}`);
+              return item ? (item.PCQTY + item.CRTQTY + item.OTHERQTY) : 0;
+            }),
+            fill: false,
+            borderColor: ['#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#b07aa1'][idx % 5],
+            tension: 0.3
+          };
+        });
+
+        const ctx1 = document.getElementById("monthlyTrendChart").getContext("2d");
+        new Chart(ctx1, {
+          type: "line",
+          data: {
+            labels: months.map(m => `${m}月`),
+            datasets: monthlyLineDatasets
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: "1-12月各年度回收數量總合折線圖"
+              },
+              tooltip: { mode: "index", intersect: false },
+              legend: { position: "top" }
+            },
+            scales: {
+              x: {
+                title: { display: true, text: "月份" }
+              },
+              y: {
+                beginAtZero: true,
+                title: { display: true, text: "總數量" }
+              }
+            }
+          }
+        });
+
+        // 整理年度總量資料（長條堆疊圖）
+        const yearlyTotals = years.map(year => {
+          const yearData = sampleData.filter(d => d.DonaYearMon.startsWith(year));
+          return {
+            year,
+            PCQTY: yearData.reduce((sum, d) => sum + d.PCQTY, 0),
+            CRTQTY: yearData.reduce((sum, d) => sum + d.CRTQTY, 0),
+            OTHERQTY: yearData.reduce((sum, d) => sum + d.OTHERQTY, 0),
+          };
+        });
+
+        const ctx2 = document.getElementById("yearlyStackChart").getContext("2d");
+        new Chart(ctx2, {
+          type: "bar",
+          data: {
+            labels: years,
+            datasets: [
+              {
+                label: "桌機",
+                data: yearlyTotals.map(y => y.PCQTY),
+                backgroundColor: "#4e79a7"
+              },
+              {
+                label: "螢幕",
+                data: yearlyTotals.map(y => y.CRTQTY),
+                backgroundColor: "#59a14f"
+              },
+              {
+                label: "其他",
+                data: yearlyTotals.map(y => y.OTHERQTY),
+                backgroundColor: "#f28e2b"
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              title: {
+                display: true,
+                text: "年度回收總量堆疊長條圖"
+              },
+              legend: { position: "top" }
+            },
+            scales: {
+              x: {
+                stacked: true,
+                title: { display: true, text: "年度" }
+              },
+              y: {
+                stacked: true,
+                title: { display: true, text: "總回收數量" }
+              }
+            }
+          }
+        });
+      })
+      .catch(err => {
+        console.error("讀取資料失敗：", err);
+      });
+  </script>
+</body>
+</html>
